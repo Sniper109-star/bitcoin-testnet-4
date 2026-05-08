@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  bitcoin-testnet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "19001:19001"
+      - "19011:19011"
+    environment:
+      - BITCOIN_CORE_VERSION=27.0
+    restart: unless-stopped
+    volumes:
+      - bitcoin-data:/bitcoin-data
+
+  faucet:
+    build:
+      context: ./faucet-app
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - RPC_HOST=bitcoin-testnet
+      - RPC_PORT=19001
+      - RPC_USER=bitcoin
+      - RPC_PASS=bitcoin
+      - PAYOUT_AMOUNT=1
+      - NODE_ENV=production
+    depends_on:
+      - bitcoin-testnet
+    restart: unless-stopped
+
+volumes:
+  bitcoin-data:
