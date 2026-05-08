@@ -1,47 +1,57 @@
-# bitcoin-testnet-box docker image
+# Bitcoin Testnet4 Node - Latest Version
+FROM ubuntu:22.04
+LABEL maintainer="Bitcoin Testnet4 Faucet"
 
-FROM ubuntu
-LABEL maintainer="Sean Lavine <lavis88@gmail.com>"
-
-# install make
+# Install dependencies
 RUN apt-get update && \
-	apt-get install --yes make wget
+    apt-get install --yes \
+    make \
+    wget \
+    curl \
+    ca-certificates
 
-# create a non-root user
+# Create non-root user
 RUN adduser --disabled-login --gecos "" tester
 
-# run following commands from user's home directory
+# Set working directory
 WORKDIR /home/tester
 
-ENV BITCOIN_CORE_VERSION "0.21.0"
+# Bitcoin Core 27.0 with Testnet4 support
+ENV BITCOIN_CORE_VERSION "27.0"
 
-# download and install bitcoin binaries
-RUN mkdir tmp \
-	&& cd tmp \
-	&& wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz" \
-	&& tar xzf "bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz" \
-	&& cd "bitcoin-${BITCOIN_CORE_VERSION}/bin" \
-	&& install --mode 755 --target-directory /usr/local/bin *
+# Download and install Bitcoin Core
+RUN mkdir tmp && \
+    cd tmp && \
+    wget "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz" && \
+    tar xzf "bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz" && \
+    cd "bitcoin-${BITCOIN_CORE_VERSION}/bin" && \
+    install --mode 755 --target-directory /usr/local/bin * && \
+    cd /home/tester && \
+    rm -r tmp
 
-# clean up
-RUN rm -r tmp
-
-# copy the testnet-box files into the image
+# Copy testnet-box files
 ADD . /home/tester/bitcoin-testnet-box
 
-# make tester user own the bitcoin-testnet-box
+# Set permissions
 RUN chown -R tester:tester /home/tester/bitcoin-testnet-box
 
-# color PS1
-RUN mv /home/tester/bitcoin-testnet-box/.bashrc /home/tester/ && \
-	cat /home/tester/.bashrc >> /etc/bash.bashrc
+# Setup bashrc
+RUN if [ -f /home/tester/bitcoin-testnet-box/.bashrc ]; then \
+    mv /home/tester/bitcoin-testnet-box/.bashrc /home/tester/ && \
+    cat /home/tester/.bashrc >> /etc/bash.bashrc; \
+    fi
 
-# use the tester user when running the image
+# Use tester user
 USER tester
 
-# run commands from inside the testnet-box directory
+# Set working directory
 WORKDIR /home/tester/bitcoin-testnet-box
 
-# expose two rpc ports for the nodes to allow outside container access
+# Expose RPC ports
 EXPOSE 19001 19011
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD bitcoin-cli -testnet getblockchaininfo || exit 1
+
 CMD ["/bin/bash"]
